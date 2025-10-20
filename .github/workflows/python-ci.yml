@@ -47,30 +47,30 @@ jobs:
                   echo "🧪 Ejecutando pruebas unitarias..."
                   pytest tests/ -v --tb=short --color=yes
 
-            # - name: 📊 Generar reporte de cobertura
-            #   run: |
-            #       echo "📊 Generando reporte de cobertura..."
-            #       coverage run -m pytest tests/
-            #       coverage report -m
-            #       coverage html
-            #       coverage xml
+            - name: 📊 Generar reporte de cobertura
+              run: |
+                  echo "📊 Generando reporte de cobertura..."
+                  coverage run -m pytest tests/
+                  coverage report -m
+                  coverage html
+                  coverage xml
 
-            # - name: 📈 Subir reporte de cobertura a Codecov
-            #   uses: codecov/codecov-action@v4
-            #   with:
-            #       file: ./coverage.xml
-            #       flags: unittests
-            #       name: codecov-${{ matrix.python-version }}
-            #       fail_ci_if_error: false
-            #   continue-on-error: true
+            - name: 📈 Subir reporte de cobertura a Codecov
+              uses: codecov/codecov-action@v4
+              with:
+                  file: ./coverage.xml
+                  flags: unittests
+                  name: codecov-${{ matrix.python-version }}
+                  fail_ci_if_error: false
+              continue-on-error: true
 
-            # - name: 📄 Subir reporte HTML de cobertura
-            #   uses: actions/upload-artifact@v4
-            #   if: always()
-            #   with:
-            #       name: coverage-report-${{ matrix.python-version }}
-            #       path: htmlcov/
-            #       retention-days: 30
+            - name: 📄 Subir reporte HTML de cobertura
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: coverage-report-${{ matrix.python-version }}
+                  path: htmlcov/
+                  retention-days: 30
 
             - name: 📋 Subir resultados de pytest
               uses: actions/upload-artifact@v4
