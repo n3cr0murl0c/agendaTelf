@@ -12,7 +12,7 @@ jobs:
 
         strategy:
             matrix:
-                python-version: ["3.9", "3.10", "3.11"]
+                python-version: ["3.13"]
 
         steps:
             - name: 📥 Checkout código
@@ -30,13 +30,13 @@ jobs:
                   pip install -r requirements.txt
                   pip install -r requirements-dev.txt
 
-            - name: ✨ Verificar estilo con flake8
+            - name: ✨ Verificar indentacion con flake8
               run: |
                   echo "🔍 Ejecutando flake8..."
                   flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
                   flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-            - name: 🎨 Verificar estilo con pylint
+            - name: 🎨 Verificar indentacion con pylint
               run: |
                   echo "🔍 Ejecutando pylint..."
                   pylint src/ --exit-zero --disable=C0114,C0115,C0116,R0903,R0801
