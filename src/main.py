@@ -315,12 +315,14 @@ def crear_contacto(contacto: ContactoCreate):
     """
     try:
         resultado = agenda.registrar_contacto(contacto.nombre, contacto.telefono)
-        # Adaptar respuesta al formato esperado por la API
-        return {
-            "mensaje": resultado["message"],
-            "nombre": resultado["contacto"]["nombre"],
-            "telefono": resultado["contacto"]["telefono"],
-        }
+        # Retornar en formato que espera la API
+        return MensajeResponse(
+            mensaje=resultado.get(
+                "mensaje", resultado.get("message", "Contacto registrado exitosamente")
+            ),
+            nombre=resultado["contacto"]["nombre"],
+            telefono=resultado["contacto"]["telefono"],
+        )
     except (ContactoInvalidoError, ValueError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -369,7 +371,7 @@ def consultar_contacto(nombre: str):
     """
     ## Consulta un contacto específico por nombre
 
-    Busca un contacto por su nombre exacto (case-sensitive).
+    Busca un contacto por su nombre (case-insensitive).
 
     ### Parámetros:
     - **nombre**: Nombre del contacto a buscar (en la URL)
@@ -438,14 +440,22 @@ def eliminar_contacto(nombre: str):
     """
     try:
         resultado = agenda.eliminar_contacto(nombre)
-        # Adaptar respuesta al formato esperado por la API
-        return {
-            "mensaje": resultado["message"],
-            "nombre": resultado["contacto"]["nombre"],
-            "telefono": resultado["contacto"]["telefono"],
-        }
+        # Retornar directamente el resultado ya que eliminar_contacto
+        # devuelve el formato correcto: {"mensaje": ..., "nombre": ..., "telefono": ...}
+        return MensajeResponse(
+            mensaje=resultado["mensaje"],
+            nombre=resultado["nombre"],
+            telefono=resultado["telefono"],
+        )
     except (ContactoInvalidoError, ValueError) as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        # Capturar cualquier otro error y loguearlo
+        print(f"Error inesperado al eliminar contacto: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al eliminar el contacto",
+        )
 
 
 @app.get(
