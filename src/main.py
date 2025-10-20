@@ -13,12 +13,13 @@ Endpoints disponibles:
 - GET /estadisticas/: Obtener estadísticas de la agenda
 """
 
-from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import JSONResponse
-from fastapi.openapi.utils import get_openapi
-from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
+
 import uvicorn
+from fastapi import FastAPI, HTTPException, status
+from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, field_validator
 
 from src.agenda import AgendaTelefonica, ContactoInvalidoError
 

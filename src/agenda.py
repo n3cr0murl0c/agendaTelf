@@ -4,7 +4,7 @@ Proporciona funcionalidades para registrar, consultar y eliminar contactos
 """
 
 import re
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 
 class ContactoInvalidoError(Exception):

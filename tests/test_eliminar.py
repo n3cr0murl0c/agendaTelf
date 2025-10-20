@@ -4,6 +4,7 @@ Desarrolladores B: Implementación de eliminar contactos
 """
 
 import pytest
+
 from src.agenda import AgendaTelefonica, ContactoInvalidoError
 
 
