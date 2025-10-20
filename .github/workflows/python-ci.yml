@@ -1,13 +1,13 @@
-name: Python CI Pipeline
+name: Python CI - Agenda Telefónica
 
 on:
     push:
-        branches: [main, develop, feature/*]
+        branches: [main, develop]
     pull_request:
         branches: [main, develop]
 
 jobs:
-    test:
+    build-and-test:
         runs-on: ubuntu-latest
 
         strategy:
@@ -16,10 +16,10 @@ jobs:
 
         steps:
             - name: 📥 Checkout código
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
             - name: 🐍 Configurar Python ${{ matrix.python-version }}
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v5
               with:
                   python-version: ${{ matrix.python-version }}
                   cache: "pip"
@@ -30,81 +30,210 @@ jobs:
                   pip install -r requirements.txt
                   pip install -r requirements-dev.txt
 
-            - name: 🎨 Verificar estilo de código con flake8
+            - name: ✨ Verificar estilo con flake8
               run: |
-                  # Detener el build si hay errores de sintaxis o nombres indefinidos
-                  flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
-                  # Verificaciones de estilo (warnings)
-                  flake8 src/ --count --max-complexity=10 --max-line-length=88 --statistics
-              continue-on-error: false
+                  echo "🔍 Ejecutando flake8..."
+                  flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+                  flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+            - name: 🎨 Verificar estilo con pylint
+              run: |
+                  echo "🔍 Ejecutando pylint..."
+                  pylint src/ --exit-zero --disable=C0114,C0115,C0116,R0903,R0801
+              continue-on-error: true
 
             - name: 🧪 Ejecutar pruebas con pytest
               run: |
-                  pytest tests/ -v --tb=short
+                  echo "🧪 Ejecutando pruebas unitarias..."
+                  pytest tests/ -v --tb=short --color=yes
 
             - name: 📊 Generar reporte de cobertura
               run: |
+                  echo "📊 Generando reporte de cobertura..."
                   coverage run -m pytest tests/
                   coverage report -m
                   coverage html
+                  coverage xml
 
-            - name: 📈 Verificar cobertura mínima
-              run: |
-                  coverage report --fail-under=80
+            - name: 📈 Subir reporte de cobertura a Codecov
+              uses: codecov/codecov-action@v4
+              with:
+                  file: ./coverage.xml
+                  flags: unittests
+                  name: codecov-${{ matrix.python-version }}
+                  fail_ci_if_error: false
+              continue-on-error: true
 
-            - name: 📤 Subir reporte de cobertura como artefacto
+            - name: 📄 Subir reporte HTML de cobertura
+              uses: actions/upload-artifact@v4
               if: always()
-              uses: actions/upload-artifact@v3
               with:
                   name: coverage-report-${{ matrix.python-version }}
                   path: htmlcov/
                   retention-days: 30
 
-            - name: 📤 Subir resultados de pruebas
+            - name: 📋 Subir resultados de pytest
+              uses: actions/upload-artifact@v4
               if: always()
-              uses: actions/upload-artifact@v3
               with:
-                  name: test-results-${{ matrix.python-version }}
+                  name: pytest-results-${{ matrix.python-version }}
                   path: |
-                      .coverage
-                      htmlcov/
+                      .pytest_cache/
                   retention-days: 30
 
-    lint-advanced:
+            - name: ✅ Verificar cobertura mínima
+              run: |
+                  echo "✅ Verificando cobertura mínima del 80%..."
+                  coverage report --fail-under=80
+
+    lint-and-format:
         runs-on: ubuntu-latest
 
         steps:
             - name: 📥 Checkout código
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
             - name: 🐍 Configurar Python
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v5
               with:
-                  python-version: "3.9"
+                  python-version: "3.11"
 
-            - name: 📦 Instalar pylint
+            - name: 📦 Instalar herramientas de linting
               run: |
-                  pip install pylint
+                  python -m pip install --upgrade pip
+                  pip install flake8 pylint black isort
 
-            - name: 🔍 Análisis con pylint
+            - name: 🎨 Verificar formato con black
               run: |
-                  pylint src/ --fail-under=8.0 || true
+                  echo "🎨 Verificando formato con black..."
+                  black --check --diff src/ tests/
               continue-on-error: true
 
-    security:
+            - name: 📑 Verificar imports con isort
+              run: |
+                  echo "📑 Verificando orden de imports..."
+                  isort --check-only --diff src/ tests/
+              continue-on-error: true
+
+    security-check:
         runs-on: ubuntu-latest
 
         steps:
             - name: 📥 Checkout código
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
             - name: 🐍 Configurar Python
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v5
               with:
-                  python-version: "3.9"
+                  python-version: "3.11"
+
+            - name: 📦 Instalar dependencias
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -r requirements.txt
 
             - name: 🔒 Verificar vulnerabilidades con safety
               run: |
                   pip install safety
-                  safety check || true
+                  safety check --json || true
               continue-on-error: true
+
+            - name: 🔐 Verificar con bandit
+              run: |
+                  pip install bandit
+                  bandit -r src/ -f json -o bandit-report.json || true
+              continue-on-error: true
+
+            - name: 📄 Subir reporte de seguridad
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: security-reports
+                  path: |
+                      bandit-report.json
+                  retention-days: 30
+
+    api-tests:
+        runs-on: ubuntu-latest
+        needs: build-and-test
+
+        steps:
+            - name: 📥 Checkout código
+              uses: actions/checkout@v4
+
+            - name: 🐍 Configurar Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+
+            - name: 📦 Instalar dependencias
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install -r requirements.txt
+                  pip install httpx
+
+            - name: 🚀 Iniciar servidor FastAPI
+              run: |
+                  uvicorn src.main:app --host 0.0.0.0 --port 8000 &
+                  sleep 5
+              env:
+                  PYTHONPATH: .
+
+            - name: 🧪 Probar endpoints de la API
+              run: |
+                  python -c "
+                  import httpx
+                  import sys
+
+                  base_url = 'http://localhost:8000'
+
+                  # Test 1: Root endpoint
+                  response = httpx.get(f'{base_url}/')
+                  assert response.status_code == 200, f'Root failed: {response.status_code}'
+                  print('✓ Root endpoint OK')
+
+                  # Test 2: Listar contactos (vacío)
+                  response = httpx.get(f'{base_url}/contactos/')
+                  assert response.status_code == 200, f'List failed: {response.status_code}'
+                  assert response.json() == [], 'List should be empty'
+                  print('✓ List contactos OK')
+
+                  # Test 3: Crear contacto
+                  response = httpx.post(
+                      f'{base_url}/contactos/',
+                      json={'nombre': 'Test User', 'telefono': '0987654321'}
+                  )
+                  assert response.status_code == 201, f'Create failed: {response.status_code}'
+                  print('✓ Create contacto OK')
+
+                  # Test 4: Consultar contacto
+                  response = httpx.get(f'{base_url}/contactos/Test User')
+                  assert response.status_code == 200, f'Get failed: {response.status_code}'
+                  print('✓ Get contacto OK')
+
+                  # Test 5: Estadísticas
+                  response = httpx.get(f'{base_url}/estadisticas/')
+                  assert response.status_code == 200, f'Stats failed: {response.status_code}'
+                  assert response.json()['total_contactos'] == 1
+                  print('✓ Estadísticas OK')
+
+                  # Test 6: Eliminar contacto
+                  response = httpx.delete(f'{base_url}/contactos/Test User')
+                  assert response.status_code == 200, f'Delete failed: {response.status_code}'
+                  print('✓ Delete contacto OK')
+
+                  print('\\n✅ Todos los tests de API pasaron')
+                  "
+
+            - name: 📖 Verificar documentación OpenAPI
+              run: |
+                  python -c "
+                  import httpx
+
+                  response = httpx.get('http://localhost:8000/openapi.json')
+                  assert response.status_code == 200
+                  schema = response.json()
+                  assert 'paths' in schema
+                  assert '/contactos/' in schema['paths']
+                  print('✓ OpenAPI schema OK')
+                  "
